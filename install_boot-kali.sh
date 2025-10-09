@@ -1,19 +1,4 @@
 #! /data/data/com.termux/files/usr/bin/bash
-########## INFO ############
-
-# This is boot-nethunter installer, you can delete this file safely after installation.
-
-## File Name:    install_bootkali.sh v1.1
-# Author:       Aravind Potluri (CIPH3R) <aravindswami135@gmail.com>
-# Description:  Installs boot-kali script that can start nethunter's chroot in other 
-#               terminal like termux.
-
-## Msg for Devs:
-# If you alter the number of lines in boot-kali script please count the final number of
-# lines that would be created and update the argument passed to ibar integrity checker in
-# install_boot-nethunter() function.
-
-############################
 #  CODE Begins here ->
 
 function banner_boot-nethunter()
@@ -27,7 +12,7 @@ function banner_boot-nethunter()
     printf "  ${blue}##     Boot-Nethunter       ##\n"
     printf "  ${blue}##                          ##\n"
     printf "  ${blue}##############################\n"
-    printf "  ${blue}|||||| ${light_cyan}name-is-cipher ${blue}||||||||\n"
+    printf "  ${blue}|||||| ${light_cyan}abidhasansojib${blue}||||||||\n"
     printf "  ${blue}--------------------------------------${reset}"
     echo "  "
     echo "  "
@@ -96,7 +81,6 @@ function install_boot-nethunter()
     echo "export PATH=\$nethunter_env; exec bootkali'" >> ~/.termux/bin/boot-kali
     echo >> ~/.termux/bin/boot-kali
     chmod +x ~/.termux/bin/boot-kali
-     # Integrity checker, the number argument to ibar is number of lines in boot-kali script.
     echo " "
     echo " [*] Installation successful !!!"
     echo " "
