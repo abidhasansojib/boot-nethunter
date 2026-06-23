@@ -1,6 +1,6 @@
 # Boot Nethunter
 
-Boots the **Kali Chroot (Nethunter-Rooted)** environment directly inside **Termux**, giving you a fully functional rooted Kali interface with Termux’s flexibility and customizability.
+Boots the **Kali Chroot (Nethunter-Rooted)** environment directly inside **Termux**, giving you a fully functional rooted Kali interface with Termux’s flexibility and customizability.This doesn't install the chroot you have to flash nethunter flashable zip using root manager and then open nethunter app then you can do this setup to completely overcome dependency on Nethunter apps
 
 > 🧩 **Rooted Android ONLY**
 
