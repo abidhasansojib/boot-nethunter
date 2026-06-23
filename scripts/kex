@@ -1,0 +1,96 @@
+#!/bin/bash
+
+# --- 1. Audio Start function ---
+start_audio() {
+    # Check if pulseaudio or pipewire is available and start it if needed
+    if command -v pulseaudio >/dev/null 2>&1; then
+        pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1
+    elif command -v pipewire >/dev/null 2>&1; then
+        pipewire >/dev/null 2>&1 &
+    fi
+}
+
+# --- 2. Check and Install Desktop/VNC ---
+if ! command -v vncserver >/dev/null 2>&1 || [ ! -d /usr/share/xsessions ]; then
+    echo -ne "\033]0;Installing XFCE\007" && clear
+    apt update && apt install -y kali-desktop-xfce tigervnc-standalone-server dbus-x11
+    apt clean
+    echo 'Done! Exiting..'
+    exit 0
+fi
+
+# --- 3. Determine Execution Mode (-r or normal) ---
+RUN_AS_ROOT=false
+
+if [ "$1" == "-r" ]; then
+    RUN_AS_ROOT=true
+elif [ -n "$1" ]; then
+    echo "Usage: kex_script [or] kex_script -r"
+    exit 1
+fi
+
+# --- 4. Password Setup and Server Launch logic ---
+if [ "$RUN_AS_ROOT" = true ]; then
+    # --- ROOT MODE (kex -r) ---
+    
+    # Check if root password file exists
+    if [ ! -f /root/.vnc/passwd ] && [ ! -f /root/.config/tigervnc/passwd ]; then
+        echo -ne "\033]0;Setting up Server\007" && clear
+        [ -f ~/.vnc/xstartup ] && chmod +x ~/.vnc/xstartup
+        clear
+        echo -e "\nPlease enter your new VNC server password\n"
+        
+        if [ "root" == "root" ]; then 
+            if [ ! -d /root/.config/tigervnc ]; then mkdir -p -m 0777 /root/.config/tigervnc; fi
+            sudo -u root vncpasswd
+            if [ ! -f ~/.vnc/passwd ]; then cp -rf ~/.config/tigervnc/passwd ~/.vnc/; fi
+        else 
+            user_uid=$(id -u root)
+            if [ "$user_uid" -eq 100000 ] || [ "$user_uid" -eq 9000 ]; then 
+                if [ ! -d /home/root/.config/tigervnc ]; then mkdir -p -m 0777 /home/root/.config/tigervnc; fi
+                sudo -u root vncpasswd
+                if [ ! -f /home/root/.vnc/passwd ]; then cp -rf /home/root/.config/tigervnc/passwd /home/root/.vnc/; fi
+            fi
+        fi
+    fi
+
+    # Start audio and Root server
+    
+    echo -ne "\033]0;Starting Server\007" && clear
+    export HOME=/root
+    export USER=root
+    sudo -u root LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libgcc_s.so.1 nohup vncserver :1 -localhost yes -name "NetHunter KeX" >/dev/null 2>&1 </dev/null
+    echo "Server started as root!"
+
+else
+    # --- KALI USER MODE (kex) ---
+    
+    # Check if kali user password file exists
+    if [ ! -f /home/kali/.vnc/passwd ] && [ ! -f /home/kali/.config/tigervnc/passwd ]; then
+        echo -ne "\033]0;Setting up Server\007" && clear
+        [ -f ~/.vnc/xstartup ] && chmod +x ~/.vnc/xstartup
+        clear
+        echo -e "\nPlease enter your new VNC server password\n"
+        
+        if [ "kali" == "root" ]; then 
+            if [ ! -d /root/.config/tigervnc ]; then mkdir -p -m 0777 /root/.root/.config/tigervnc; fi
+            sudo -u root vncpasswd
+            if [ ! -f ~/.vnc/passwd ]; then cp -rf ~/.config/tigervnc/passwd ~/.vnc/; fi
+        else 
+            user_uid=$(id -u kali)
+            if [ "$user_uid" -eq 100000 ] || [ "$user_uid" -eq 9000 ]; then 
+                if [ ! -d /home/kali/.config/tigervnc ]; then mkdir -p -m 0777 /home/kali/.config/tigervnc; fi
+                sudo -u kali vncpasswd
+                if [ ! -f /home/kali/.vnc/passwd ]; then cp -rf /home/kali/.config/tigervnc/passwd /home/kali/.vnc/; fi
+            fi
+        fi
+    fi
+
+    # Start audio and Kali server
+    
+    echo -ne "\033]0;Starting Server\007" && clear
+    export HOME=/home/kali
+    export USER=kali
+    sudo -u kali LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libgcc_s.so.1 nohup vncserver :1 -localhost yes -name "NetHunter KeX" >/dev/null 2>&1 </dev/null
+    echo "Server started!"
+fi
