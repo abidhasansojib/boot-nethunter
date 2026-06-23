@@ -20,8 +20,17 @@ Boots the **Kali Chroot (Nethunter-Rooted)** environment directly inside **Termu
 
 Run `boot-kali` anywhere inside Termux to start the **Kali chroot** environment.
 
-## Additional Info
+# Additional Info
 
-- Installation creates a `bin` folder under `$HOME/.termux/`, which is automatically added to your `PATH`.
-- You can drop any binaries or executables into that folder and call them globally from Termux.
+## Sound Fix
+
+To start audio server user this command in nethunter terminal
+
+```bash
+audio start
+```
+and use this app to get sound output no need Nethunter app.[Download App](https://drive.google.com/file/d/1fXFMu-oTDUM-u4nD403raVjoM8IGYDJq/view?usp=drivesdk)
+
+
+
 
