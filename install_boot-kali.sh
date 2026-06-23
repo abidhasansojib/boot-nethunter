@@ -41,15 +41,35 @@ function check_update()
     fi
 }
 
-function check_tbin()
-{
-    if [ ! -d ~/.termux/bin ]; then
-        mkdir ~/.termux/bin
-        echo >> ~/.bashrc
-        echo "# This PATH is for Termux superuser bin folder" >> ~/.bashrc
-        echo "export PATH=\$PATH:/data/data/com.termux/files/home/.termux/bin" >> ~/.bashrc
-        echo " [*] Created Termux bin"
-        echo " "
+setup_nh_files() {
+    # Define target directories
+    local BIN_DIR="/data/local/nhsystem/kali-arm64/bin"
+    local ROOT_DIR="/data/local/nhsystem/kali-arm64/root"
+    local SCRIPTS_SRC="scripts"
+
+    # Check if the scripts folder exists
+    if [ ! -d "$SCRIPTS_SRC" ]; then
+        echo "⚠️ Error: '$SCRIPTS_SRC' folder not found in the current directory."
+        return 1
+    fi
+
+    # 1. Handle 'kex' from the scripts folder
+    if [ -f "$SCRIPTS_SRC/kex" ]; then
+        echo "Moving 'kex' to $BIN_DIR..."
+        sudo mv "$SCRIPTS_SRC/kex" "$BIN_DIR/" && sudo chmod +x "$BIN_DIR/kex"
+        echo "✓ 'kex' moved and made executable."
+    else
+        echo "⚠️ Warning: 'kex' not found inside '$SCRIPTS_SRC/'"
+    fi
+
+    # 2. Move everything else remaining in the scripts folder to root
+    # This safely checks if there are any files left in the directory
+    if [ "$(shopt -s nullglob; echo "$SCRIPTS_SRC"/*)" ]; then
+        echo "Moving remaining scripts to $ROOT_DIR..."
+        sudo mv "$SCRIPTS_SRC"/* "$ROOT_DIR/"
+        echo "✓ All remaining scripts moved to root."
+    else
+        echo "ℹ️ No extra scripts left in '$SCRIPTS_SRC/' to move."
     fi
 }
 
@@ -97,8 +117,7 @@ function install_boot-nethunter()
 banner_boot-nethunter
 
 check_update
-
-check_tbin
+setup_nh_files()
 
 install_boot-nethunter
 
