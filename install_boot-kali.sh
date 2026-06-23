@@ -56,17 +56,18 @@ setup_nh_files() {
     # 1. Handle 'kex' from the scripts folder
     if [ -f "$SCRIPTS_SRC/kex" ]; then
         echo "Moving 'kex' to $BIN_DIR..."
-        sudo mv "$SCRIPTS_SRC/kex" "$BIN_DIR/" && sudo chmod +x "$BIN_DIR/kex"
+        # FIXED: Replaced sudo with su -c for Termux root execution
+        su -c "mv '$SCRIPTS_SRC/kex' '$BIN_DIR/' && chmod +x '$BIN_DIR/kex'"
         echo "✓ 'kex' moved and made executable."
     else
         echo "⚠️ Warning: 'kex' not found inside '$SCRIPTS_SRC/'"
     fi
 
     # 2. Move everything else remaining in the scripts folder to root
-    # This safely checks if there are any files left in the directory
     if [ "$(shopt -s nullglob; echo "$SCRIPTS_SRC"/*)" ]; then
         echo "Moving remaining scripts to $ROOT_DIR..."
-        sudo mv "$SCRIPTS_SRC"/* "$ROOT_DIR/"
+        # FIXED: Replaced sudo with su -c for Termux root execution
+        su -c "mv '$SCRIPTS_SRC'/* '$ROOT_DIR/$SCRIPTS_SRC'"
         echo "✓ All remaining scripts moved to root."
     else
         echo "ℹ️ No extra scripts left in '$SCRIPTS_SRC/' to move."
@@ -79,6 +80,7 @@ function clean_temp()
         rm ~/.wget-hsts
     fi
 }
+
 function install_boot-nethunter()
 {
     echo " [*] Installing Boot Nethunter ..."
@@ -122,5 +124,3 @@ setup_nh_files
 install_boot-nethunter
 
 clean_temp
-
-##############################
