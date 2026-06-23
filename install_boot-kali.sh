@@ -65,22 +65,22 @@ function install_boot-nethunter()
     echo " "
 
     su -c 'cp -r /data/data/com.offsec.nethunter/scripts /data/local/'
-    echo "#! /data/data/com.termux/files/usr/bin/bash" > ~/.termux/bin/boot-kali
-    echo "# This scrpit boots nethunter in termux" >> ~/.termux/bin/boot-kali
+    echo "#! /data/data/com.termux/files/usr/bin/bash" > /data/data/com.termux/files/usr/bin/boot-kali
+    echo "# This scrpit boots nethunter in termux" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo >> ~/.termux/bin/boot-kali
     echo "su -c '" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$PATH:/system/sbin" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/product/bin" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/apex/com.android.runtime/bin" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/odm/bin" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/vendor/bin" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/vendor/xbin" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/data/local/scripts" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/data/local/scripts" >> ~/.termux/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/data/local/scripts/bin" >> ~/.termux/bin/boot-kali
-    echo "export PATH=\$nethunter_env; exec bootkali'" >> ~/.termux/bin/boot-kali
-    echo >> ~/.termux/bin/boot-kali
-    chmod +x ~/.termux/bin/boot-kali
+    echo "nethunter_env=\$PATH:/system/sbin" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "nethunter_env=\$nethunter_env:/product/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "nethunter_env=\$nethunter_env:/apex/com.android.runtime/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "nethunter_env=\$nethunter_env:/odm/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "nethunter_env=\$nethunter_env:/vendor/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "nethunter_env=\$nethunter_env:/vendor/xbin" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "nethunter_env=\$nethunter_env:/data/local/scripts" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "nethunter_env=\$nethunter_env:/data/local/scripts" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "nethunter_env=\$nethunter_env:/data/local/scripts/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "export PATH=\$nethunter_env; exec bootkali'" >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo >> /data/data/com.termux/files/usr/bin/boot-kali
+    chmod +x /data/data/com.termux/files/usr/bin/boot-kali
     echo " "
     echo " [*] Installation successful !!!"
     echo " "
