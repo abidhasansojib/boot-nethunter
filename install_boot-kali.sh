@@ -76,7 +76,6 @@ function install_boot-nethunter()
     echo "nethunter_env=\$nethunter_env:/vendor/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo "nethunter_env=\$nethunter_env:/vendor/xbin" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo "nethunter_env=\$nethunter_env:/data/local/scripts" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/data/local/scripts" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo "nethunter_env=\$nethunter_env:/data/local/scripts/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo "export PATH=\$nethunter_env; exec bootkali'" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo >> /data/data/com.termux/files/usr/bin/boot-kali
