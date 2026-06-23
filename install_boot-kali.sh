@@ -85,20 +85,20 @@ function install_boot_nethunter()
     
     # Using a clean Here-Doc block to write the boot script safely
     su -c "cat << 'EOF' > /data/data/com.termux/files/usr/bin/boot-kali
-#! /data/data/com.termux/files/usr/bin/bash
-# This script boots nethunter in termux
+    #! /data/data/com.termux/files/usr/bin/bash
+    # This script boots nethunter in termux
 
-su -c '
-nethunter_env=\$PATH:/system/sbin
-nethunter_env=\$nethunter_env:/product/bin
-nethunter_env=\$nethunter_env:/apex/com.android.runtime/bin
-nethunter_env=\$nethunter_env:/odm/bin
-nethunter_env=\$nethunter_env:/vendor/bin
-nethunter_env=\$nethunter_env:/vendor/xbin
-nethunter_env=\$nethunter_env:/data/local/scripts
-nethunter_env=\$nethunter_env:/data/local/scripts/bin
-export PATH=\$nethunter_env; exec bootkali'
-EOF"
+    su -c '
+    nethunter_env=\$PATH:/system/sbin
+    nethunter_env=\$nethunter_env:/product/bin
+    nethunter_env=\$nethunter_env:/apex/com.android.runtime/bin
+    nethunter_env=\$nethunter_env:/odm/bin
+    nethunter_env=\$nethunter_env:/vendor/bin
+    nethunter_env=\$nethunter_env:/vendor/xbin
+    nethunter_env=\$nethunter_env:/data/local/scripts
+    nethunter_env=\$nethunter_env:/data/local/scripts/bin
+    export PATH=\$nethunter_env; exec bootkali'
+    EOF"
 
     chmod +x /data/data/com.termux/files/usr/bin/boot-kali
     echo " "
