@@ -1,7 +1,7 @@
 #! /data/data/com.termux/files/usr/bin/bash
 #  CODE Begins here ->
 
-function banner_boot-nethunter()
+function banner_boot_nethunter()
 {
     blue='\033[1;34m'
     light_cyan='\033[1;96m'
@@ -23,51 +23,46 @@ function check_update()
     if [ ! -d ~/.termux ]; then
         clear
         echo " "
-        echo " [!] Your are on older version of Termux !!!"
+        echo " [!] You may be on an older version of Termux !!!"
         echo "     Updating Termux...."
-        sleep 4
-        apt update
+        sleep 2
+        pkg update -y
         clear
-        echo " [!] if prompted any, hit -> y"
-        sleep 5
-        apt upgrade -y
-        apt install wget -y
+        echo " [!] Upgrading packages..."
+        sleep 2
+        pkg upgrade -y
+        pkg install wget -y
         clear
         echo " "
-        echo " [*] You need to completly restart the termux, "
+        echo " [*] You need to completely restart Termux, "
         echo "     And start the installation again !!!"
         echo " "
-        exit;
+        exit
     fi
 }
 
 setup_nh_files() {
-    # Define target directories
     local BIN_DIR="/data/local/nhsystem/kali-arm64/bin"
     local ROOT_DIR="/data/local/nhsystem/kali-arm64/root"
     local SCRIPTS_SRC="scripts"
 
-    # Check if the scripts folder exists
     if [ ! -d "$SCRIPTS_SRC" ]; then
         echo "⚠️ Error: '$SCRIPTS_SRC' folder not found in the current directory."
         return 1
     fi
 
-    # 1. Handle 'kex' from the scripts folder
     if [ -f "$SCRIPTS_SRC/kex" ]; then
         echo "Moving 'kex' to $BIN_DIR..."
-        # FIXED: Replaced sudo with su -c for Termux root execution
         su -c "mv '$SCRIPTS_SRC/kex' '$BIN_DIR/' && chmod +x '$BIN_DIR/kex'"
         echo "✓ 'kex' moved and made executable."
     else
         echo "⚠️ Warning: 'kex' not found inside '$SCRIPTS_SRC/'"
     fi
 
-    # 2. Move everything else remaining in the scripts folder to root
     if [ "$(shopt -s nullglob; echo "$SCRIPTS_SRC"/*)" ]; then
         echo "Moving remaining scripts to $ROOT_DIR..."
-        # FIXED: Replaced sudo with su -c for Termux root execution
-        su -c "mv '$SCRIPTS_SRC'/* '$ROOT_DIR/$SCRIPTS_SRC'"
+        su -c "mkdir -p '$ROOT_DIR/scripts'"
+        su -c "mv '$SCRIPTS_SRC'/* '$ROOT_DIR/scripts/'"
         echo "✓ All remaining scripts moved to root."
     else
         echo "ℹ️ No extra scripts left in '$SCRIPTS_SRC/' to move."
@@ -81,26 +76,30 @@ function clean_temp()
     fi
 }
 
-function install_boot-nethunter()
+function install_boot_nethunter()
 {
     echo " [*] Installing Boot Nethunter ..."
     echo " "
 
     su -c 'cp -r /data/data/com.offsec.nethunter/scripts /data/local/'
-    echo "#! /data/data/com.termux/files/usr/bin/bash" > /data/data/com.termux/files/usr/bin/boot-kali
-    echo "# This scrpit boots nethunter in termux" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "su -c '" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$PATH:/system/sbin" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/product/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/apex/com.android.runtime/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/odm/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/vendor/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/vendor/xbin" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/data/local/scripts" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "nethunter_env=\$nethunter_env:/data/local/scripts/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo "export PATH=\$nethunter_env; exec bootkali'" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo >> /data/data/com.termux/files/usr/bin/boot-kali
+    
+    # Using a clean Here-Doc block to write the boot script safely
+    su -c "cat << 'EOF' > /data/data/com.termux/files/usr/bin/boot-kali
+#! /data/data/com.termux/files/usr/bin/bash
+# This script boots nethunter in termux
+
+su -c '
+nethunter_env=\$PATH:/system/sbin
+nethunter_env=\$nethunter_env:/product/bin
+nethunter_env=\$nethunter_env:/apex/com.android.runtime/bin
+nethunter_env=\$nethunter_env:/odm/bin
+nethunter_env=\$nethunter_env:/vendor/bin
+nethunter_env=\$nethunter_env:/vendor/xbin
+nethunter_env=\$nethunter_env:/data/local/scripts
+nethunter_env=\$nethunter_env:/data/local/scripts/bin
+export PATH=\$nethunter_env; exec bootkali'
+EOF"
+
     chmod +x /data/data/com.termux/files/usr/bin/boot-kali
     echo " "
     echo " [*] Installation successful !!!"
@@ -110,17 +109,14 @@ function install_boot-nethunter()
     echo " [*] Termux needs to be restarted to work properly,"
     echo "     Please restart !"
     echo " "
-    read
+    read -p "Press [Enter] to exit..."
     exit
 }
 
 ############ Main #############
 
-banner_boot-nethunter
-
+banner_boot_nethunter
 check_update
 setup_nh_files
-
-install_boot-nethunter
-
+install_boot_nethunter
 clean_temp
