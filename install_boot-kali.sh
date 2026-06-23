@@ -117,7 +117,7 @@ function install_boot-nethunter()
 banner_boot-nethunter
 
 check_update
-setup_nh_files()
+setup_nh_files
 
 install_boot-nethunter
 
