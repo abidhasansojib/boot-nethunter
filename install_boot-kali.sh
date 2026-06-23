@@ -87,8 +87,8 @@ function install_boot-nethunter()
     su -c 'cp -r /data/data/com.offsec.nethunter/scripts /data/local/'
     echo "#! /data/data/com.termux/files/usr/bin/bash" > /data/data/com.termux/files/usr/bin/boot-kali
     echo "# This scrpit boots nethunter in termux" >> /data/data/com.termux/files/usr/bin/boot-kali
-    echo >> ~/.termux/bin/boot-kali
-    echo "su -c '" >> ~/.termux/bin/boot-kali
+    echo >> /data/data/com.termux/files/usr/bin/boot-kali
+    echo "su -c '" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo "nethunter_env=\$PATH:/system/sbin" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo "nethunter_env=\$nethunter_env:/product/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
     echo "nethunter_env=\$nethunter_env:/apex/com.android.runtime/bin" >> /data/data/com.termux/files/usr/bin/boot-kali
