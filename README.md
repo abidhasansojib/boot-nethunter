@@ -18,7 +18,12 @@ Boots the **Kali Chroot (Nethunter-Rooted)** environment directly inside **Termu
 
 ## Usage
 
-Run `boot-kali` anywhere inside Termux to start the **Kali chroot** environment.
+Run `boot-kali` anywhere inside Termux to start the **Kali chroot** environment.Or you can add the command in bash.bashrc to make it automatic exicute while opening a new tab.For that run this command below
+
+```bash
+rm /data/data/com.termux/files/usr/etc/motd && echo "boot-kali" | tee -a /data/data/com.termux/files/usr/etc/bash.bashrc
+```
+
 
 # Additional Info
 
@@ -31,6 +36,14 @@ audio start
 ```
 and use this app to get sound output no need Nethunter app.[Download App](https://drive.google.com/file/d/1fXFMu-oTDUM-u4nD403raVjoM8IGYDJq/view?usp=drivesdk)
 
+
+## Keyboard Fix
+
+If keyboard is working but giving some problem like ^M or something else run this in terminal
+
+```bash
+stty sane
+```
 
 
 
