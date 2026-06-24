@@ -1,16 +1,43 @@
 #!/bin/bash
 
-# --- 1. Audio Start function ---
-start_audio() {
-    # Check if pulseaudio or pipewire is available and start it if needed
-    if command -v pulseaudio >/dev/null 2>&1; then
-        pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1
-    elif command -v pipewire >/dev/null 2>&1; then
-        pipewire >/dev/null 2>&1 &
+# --- 1.5. VNC Kill function ---
+kill_vnc() {
+    echo "Stopping all VNC server instances..."
+    
+    local displays
+    displays=$( (
+        find /home/*/.vnc/ /root/.vnc/ -name "*.pid" 2>/dev/null | xargs -r -n1 basename 2>/dev/null | sed 's/\.pid//' | sed 's/.*:/:/'
+        find /tmp/.X11-unix/ -name "X*" 2>/dev/null | sed 's/.*X/:/'
+        find /tmp/ -name ".X*-lock" 2>/dev/null | sed -E 's/.*\.X([0-9]+)-lock/:\1/'
+    ) | sort -u )
+    
+    if [ -n "$displays" ]; then
+        for display in $displays; do
+            echo "Stopping display $display..."
+            vncserver -kill "$display" >/dev/null 2>&1
+            sudo -u kali vncserver -kill "$display" >/dev/null 2>&1
+            sudo -u root vncserver -kill "$display" >/dev/null 2>&1
+        done
     fi
+
+    # Force kill any remaining processes
+    pkill -f Xvnc >/dev/null 2>&1
+    pkill -f vncserver >/dev/null 2>&1
+    
+    # Clean up lock files and sockets to prevent startup issues
+    rm -f /tmp/.X*-lock /tmp/.X11-unix/X* >/dev/null 2>&1
+    rm -f /home/*/.vnc/*.pid /home/*/.vnc/*.log /root/.vnc/*.pid /root/.vnc/*.log >/dev/null 2>&1
+    
+    echo "All VNC servers stopped and cleaned up successfully."
 }
 
-# --- 2. Check and Install Desktop/VNC ---
+# --- 2. Check for kill command ---
+if [ "$1" = "kill" ] || [ "$1" = "stop" ] || { [ "$1" = "-r" ] && [ "$2" = "kill" ]; } || { [ "$1" = "-r" ] && [ "$2" = "stop" ]; }; then
+    kill_vnc
+    exit 0
+fi
+
+# --- 3. Check and Install Desktop/VNC ---
 if ! command -v vncserver >/dev/null 2>&1 || [ ! -d /usr/share/xsessions ]; then
     echo -ne "\033]0;Installing XFCE\007" && clear
     apt update && apt install -y kali-desktop-xfce tigervnc-standalone-server dbus-x11
@@ -19,13 +46,13 @@ if ! command -v vncserver >/dev/null 2>&1 || [ ! -d /usr/share/xsessions ]; then
     exit 0
 fi
 
-# --- 3. Determine Execution Mode (-r or normal) ---
+# --- 4. Determine Execution Mode (-r or normal) ---
 RUN_AS_ROOT=false
 
 if [ "$1" == "-r" ]; then
     RUN_AS_ROOT=true
 elif [ -n "$1" ]; then
-    echo "Usage: kex_script [or] kex_script -r"
+    echo "Usage: kex [or] kex -r [or] kex kill"
     exit 1
 fi
 
