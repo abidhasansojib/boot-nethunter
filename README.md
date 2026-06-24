@@ -45,5 +45,10 @@ If keyboard is working but giving some problem like ^M or something else run thi
 stty sane
 ```
 
+## Delete Chroot
 
+Use this oneline command in your termux terminal not kali terminal(Use Ctrl+d twice to exit kali terminal) 
 
+```bash
+export MNT="/data/local/nhsystem/kali-$([ "$(uname -m)" = "aarch64" ] && echo "arm64" || echo "armhf")" && su -c "pids=\$(lsof | grep '$MNT' | awk '{print \$2}' | uniq) && [ -n '\$pids' ] && kill -9 \$pids; for m in dev/pts dev/shm dev proc sys system sdcard; do umount -l $MNT/\$m 2>/dev/null; done; rm -rf /data/local/nhsystem"
+```
