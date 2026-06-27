@@ -18,7 +18,7 @@ I have added fix in installation scripts but if that doesn't work usung this in 
 
 ## Usage
 
-Run `boot-kali` anywhere inside Termux to start the **Kali chroot** environment.I have added `boot-kali` in termux bash.bashrc file.So when you open a new tab it will automatically boot kali.
+Run `boot-kali` anywhere inside Termux to start the **Kali chroot** environment.I have added `boot-kali` in termux bash.bashrc file.So when you open a new tab it will automatically boot kali.Use `kex` or `kex -r` to setup vnc server (-r for running as root)
 
 
 # Additional Info
