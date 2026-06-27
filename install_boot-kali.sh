@@ -619,7 +619,7 @@ choose_rootfs_version
 download_and_extract
 setup_boot_scripts
 setup_nh_files
+setup_kali_boot
 setup_permissions_and_audio
 install_boot_nethunter
-setup_kali_boot
 clean_temp
