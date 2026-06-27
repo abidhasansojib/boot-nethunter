@@ -224,6 +224,17 @@ if [ -d "$MNT/sdcard" ] || mkdir -p "$MNT/sdcard"; then
     fi
 fi
 
+true > "$MNT/etc/resolv.conf"
+for i in 1 2 3 4; do
+    dns=$(getprop net.dns${i})
+    if [ -n "$dns" ]; then
+        echo "nameserver $dns" >> "$MNT/etc/resolv.conf"
+    fi
+done
+echo "nameserver 8.8.8.8" >> "$MNT/etc/resolv.conf"
+echo "nameserver 1.1.1.1" >> "$MNT/etc/resolv.conf"
+chmod 644 "$MNT/etc/resolv.conf"
+
 sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1
 echo "127.0.0.1 localhost kali" > "$MNT/etc/hosts"
 echo "::1 localhost ip6-localhost ip6-loopback" >> "$MNT/etc/hosts"
@@ -392,7 +403,27 @@ function apply_chroot_compatibility_fixes()
     echo -e "${light_cyan}[*] Applying Android/Termux compatibility fixes inside chroot...${reset}"
     local CHROOT_PATH="/data/local/nhsystem/kali-${ARCH}"
 
-    # 1. Add aid_inet group (GID 3003) and assign _apt user to it for internet permissions under Android
+    # 1. Clear resolv.conf and setup reliable DNS servers (Google, Cloudflare, and system properties if available)
+    su -c "mkdir -p $CHROOT_PATH/etc"
+    su -c "echo 'nameserver 8.8.8.8' > $CHROOT_PATH/etc/resolv.conf"
+    su -c "echo 'nameserver 1.1.1.1' >> $CHROOT_PATH/etc/resolv.conf"
+    su -c "echo 'nameserver 208.67.222.222' >> $CHROOT_PATH/etc/resolv.conf"
+    su -c "echo 'nameserver 208.67.220.220' >> $CHROOT_PATH/etc/resolv.conf"
+    # Try to append device's dns servers
+    for i in 1 2 3 4; do
+        dns=$(getprop net.dns${i})
+        if [ -n "$dns" ]; then
+            su -c "echo 'nameserver $dns' >> $CHROOT_PATH/etc/resolv.conf"
+        fi
+    done
+    su -c "chmod 644 $CHROOT_PATH/etc/resolv.conf"
+
+    # 2. Disable APT sandbox to prevent sandbox permission errors on Android
+    su -c "mkdir -p $CHROOT_PATH/etc/apt/apt.conf.d"
+    su -c "echo 'APT::Sandbox::User \"root\";' > $CHROOT_PATH/etc/apt/apt.conf.d/01-android-nosandbox"
+    su -c "chmod 644 $CHROOT_PATH/etc/apt/apt.conf.d/01-android-nosandbox"
+
+    # 3. Add aid_inet group (GID 3003) and assign _apt user to it for internet permissions under Android
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot $CHROOT_PATH sh -c '
         GN=\$(getent group 3003 | cut -d: -f1 || true)
         if [ -z \"\$GN\" ]; then
@@ -408,14 +439,14 @@ function apply_chroot_compatibility_fixes()
         fi
     '"
 
-    # 2. Comment out pam_keyinit.so inside chroot pam configurations as it causes issues on Android
+    # 4. Comment out pam_keyinit.so inside chroot pam configurations as it causes issues on Android
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot $CHROOT_PATH sh -c '
         if [ -d /etc/pam.d ]; then
             sed -i \"s/pam_keyinit\\.so/& # disabled on Android/\" /etc/pam.d/* 2>/dev/null || true
         fi
     '"
 
-    # 3. Fix TMPDIR environment variable for zsh/bash configurations to prevent /tmp directory errors
+    # 5. Fix TMPDIR environment variable for zsh/bash configurations to prevent /tmp directory errors
     echo -e "${light_cyan}[*] Configuring TMPDIR=/tmp for bash and zsh shells inside chroot...${reset}"
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot $CHROOT_PATH sh -c '
         # Global zshrc
@@ -565,7 +596,6 @@ setup_kali_boot() {
     fi
 }
 
-
 function clean_temp()
 {
     echo -e "${light_cyan}[*] Cleaning up temporary files...${reset}"
@@ -591,7 +621,6 @@ function clean_temp()
 }
 
 
-
 ############ Main #############
 
 print_banner
@@ -601,7 +630,7 @@ choose_rootfs_version
 download_and_extract
 setup_boot_scripts
 setup_nh_files
-setup_kali_boot
 setup_permissions_and_audio
-clean_temp
 install_boot_nethunter
+setup_kali_boot
+clean_temp
