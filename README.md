@@ -6,7 +6,7 @@ Boots the **Kali Chroot (Nethunter-Rooted)** environment directly inside **Termu
 # Installation 
 
    ```bash
-   pkg install git && git clone https://github.com/abidhasansojib/Nethunter_Chroot_Termux.git && cd Nethunter_Chroot_Termux && chmod +x install_boot-kali.sh && ./install.sh
+   pkg install git && git clone https://github.com/abidhasansojib/Nethunter_Chroot_Termux.git && cd Nethunter_Chroot_Termux && chmod +x install.sh && ./install.sh
    ```
 # Fix tmp directory error
 I have added fix in installation scripts but if that doesn't work usung this in kali terminal
