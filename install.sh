@@ -1,5 +1,4 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Code Begins here ->
 
 red='\033[1;31m'
 green='\033[1;32m'
@@ -26,36 +25,33 @@ function print_banner() {
 
 function check_update()
 {
-    # Check if we are running in Termux
-    if [ ! -d ~/.termux ]; then
+    # Safer Termux Check: Verify using actual system prefix path instead of home dir folder
+    if [ ! -d "/data/data/com.termux/files/usr" ]; then
         clear
         echo " "
-        echo -e "${red}[!] You may be on an older version of Termux !!!${reset}"
-        echo -e "${yellow}    Updating Termux....${reset}"
-        sleep 2
-        pkg update -y
-        clear
-        echo -e "${yellow}[!] Upgrading packages...${reset}"
-        sleep 2
-        pkg upgrade -y
-        pkg install wget tar xz-utils -y
-        clear
-        echo " "
-        echo -e "${red}[*] You need to completely restart Termux,${reset}"
-        echo -e "${red}    And start the installation again !!!${reset}"
-        echo " "
-        exit
-    else
-        echo -e "${light_cyan}[*] Checking and installing package dependencies...${reset}"
-        pkg install wget tar xz-utils -y
+        echo -e "${red}[!] You are not running inside a proper Termux environment!${reset}"
+        exit 1
     fi
+
+    echo -e "${light_cyan}[*] Checking and installing package dependencies...${reset}"
+    pkg update -y && pkg upgrade -y
+    pkg install wget tar xz-utils coreutils -y
 }
 
-# 1. Architecture detection
-ARCH="$([ "$(uname -m)" = "aarch64" ] && echo "arm64" || echo "armhf")"
+# Expanded Architecture Support: Arm, Armhf, x86_64, and i686
+UNAME_M=$(uname -m)
+if [ "$UNAME_M" = "aarch64" ]; then
+    ARCH="arm64"
+elif [ "$UNAME_M" = "x86_64" ]; then
+    ARCH="amd64"
+elif [ "$UNAME_M" = "i686" ] || [ "$UNAME_M" = "i386" ]; then
+    ARCH="i386"
+else
+    ARCH="armhf"
+fi
+
 MNT="/data/local/nhsystem/kali-${ARCH}"
 
-# 2. Check for existing chroot
 function check_existing_chroot()
 {
     if su -c "test -d $MNT"; then
@@ -67,15 +63,14 @@ function check_existing_chroot()
             exit 0
         else
             echo -e "${yellow}[*] Cleaning up and removing old chroot environment...${reset}"
-            # Execute the specified removal command
-            export MNT="/data/local/nhsystem/kali-$([ "$(uname -m)" = "aarch64" ] && echo "arm64" || echo "armhf")"
-            su -c "pids=\$(lsof | grep '$MNT' | awk '{print \$2}' | uniq) && [ -n '\$pids' ] && kill -9 \$pids; for m in dev/pts dev/shm dev proc sys system sdcard; do umount -l $MNT/\$m 2>/dev/null; done; rm -rf /data/local/nhsystem"
+            # Precise Process Cleaning: Scan via /proc to avoid lsof issues
+            su -c "for pid in \$(ls /proc | grep -E '^[0-9]+\$'); do if ls -l /proc/\$pid/root 2>/dev/null | grep -q '$MNT'; then kill -9 \$pid 2>/dev/null; fi; done"
+            su -c "for m in dev/pts dev/shm dev proc sys system sdcard; do umount -l $MNT/\$m 2>/dev/null; done; rm -rf /data/local/nhsystem"
             echo -e "${green}✓ Old chroot removed successfully.${reset}"
         fi
     fi
 }
 
-# 3. Choose version
 function choose_rootfs_version()
 {
     echo -e "${blue}=========================================${reset}"
@@ -93,20 +88,18 @@ function choose_rootfs_version()
     fi
 }
 
-# 4. Download and extract rootfs
 function download_and_extract()
 {
     echo -e "${light_cyan}[*] Downloading Kali NetHunter rootfs...${reset}"
     echo -e "${light_cyan}URL: $ROOTFS_URL${reset}"
 
-    # Check if local file already exists to save download time/bandwidth
     if [ -f "nethunter-rootfs.tar.xz" ]; then
         echo -e "${yellow}Found existing nethunter-rootfs.tar.xz in current directory.${reset}"
         read -p "Do you want to use the existing archive instead of downloading again? (y/n): " use_existing
         use_existing=$(echo "$use_existing" | tr '[:upper:]' '[:lower:]')
         if [[ "$use_existing" != "y" && "$use_existing" != "yes" ]]; then
             echo -e "${light_cyan}[*] Downloading fresh archive...${reset}"
-            rm -f nethunter-rootfs.tar.xz
+            rm -f nethunter-rootfs.tar.xz nethunter-rootfs.tar.xz.sha256
             wget -O nethunter-rootfs.tar.xz --show-progress "$ROOTFS_URL"
         else
             echo -e "${green}[*] Using existing archive.${reset}"
@@ -115,9 +108,20 @@ function download_and_extract()
         wget -O nethunter-rootfs.tar.xz --show-progress "$ROOTFS_URL"
     fi
 
-    if [ ! -f nethunter-rootfs.tar.xz ]; then
-        echo -e "${red}❌ Error: nethunter-rootfs.tar.xz not found!${reset}"
-        exit 1
+    # Integrity Validation: Grab and verify with official SHA256 checksum file
+    echo -e "${light_cyan}[*] Verifying integrity via SHA256...${reset}"
+    wget -O nethunter-rootfs.tar.xz.sha256 "${ROOTFS_URL}.sha256"
+    if [ -f nethunter-rootfs.tar.xz.sha256 ]; then
+        # Format official hash payload to read locally saved file name
+        sed -i "s|$(basename "$ROOTFS_URL")|nethunter-rootfs.tar.xz|g" nethunter-rootfs.tar.xz.sha256
+        if sha256sum -c nethunter-rootfs.tar.xz.sha256 >/dev/null 2>&1; then
+            echo -e "${green}✓ Integrity verification passed!${reset}"
+        else
+            echo -e "${red}❌ Integrity verification failed! Corrupted download.${reset}"
+            exit 1
+        fi
+    else
+        echo -e "${yellow}⚠️ Warning: Missing official checksum file. Skipping verification.${reset}"
     fi
 
     echo -e "${light_cyan}[*] Creating target directory /data/local/nhsystem...${reset}"
@@ -135,25 +139,21 @@ function download_and_extract()
     su -c "ln -sf /data/local/nhsystem/kali-${ARCH} /data/local/nhsystem/kalifs"
 }
 
-# 5. Setup NetHunter boot scripts and binaries
 function setup_boot_scripts()
 {
     echo -e "${light_cyan}[*] Setting up NetHunter boot scripts under /data/local/nhsystem/boot_scripts...${reset}"
     su -c "mkdir -p /data/local/nhsystem/boot_scripts"
 
-    # Write bootkali_log
-    cat << 'EOF' > bootkali_log.tmp
+    # Cleaned up I/O: Writing structures directly using sudo root-piping
+    su -c "cat > /data/local/nhsystem/boot_scripts/bootkali_log" << 'EOF'
 #!/system/bin/sh
 bklog() {
     echo "$@"
     log -t "bklog" "$(basename $0) -> $*"
 }
 EOF
-    su -c "cp bootkali_log.tmp /data/local/nhsystem/boot_scripts/bootkali_log"
-    rm -f bootkali_log.tmp
 
-    # Write bootkali_env
-    cat << 'EOF' > bootkali_env.tmp
+    su -c "cat > /data/local/nhsystem/boot_scripts/bootkali_env" << 'EOF'
 #!/system/bin/sh
 unset LD_PRELOAD
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:"$PATH"
@@ -161,11 +161,8 @@ NHSYSTEM_PATH=/data/local/nhsystem
 CHROOT_EXEC=/usr/bin/sudo
 MNT=$(readlink -e $NHSYSTEM_PATH/kalifs)
 EOF
-    su -c "cp bootkali_env.tmp /data/local/nhsystem/boot_scripts/bootkali_env"
-    rm -f bootkali_env.tmp
 
-    # Write bootkali_init
-    cat << 'EOF' > bootkali_init.tmp
+    su -c "cat > /data/local/nhsystem/boot_scripts/bootkali_init" << 'EOF'
 #!/system/bin/sh
 SCRIPT_PATH=$(readlink -f "$0")
 . "${SCRIPT_PATH%/*}"/bootkali_log
@@ -240,11 +237,8 @@ echo "127.0.0.1 localhost kali" > "$MNT/etc/hosts"
 echo "::1 localhost ip6-localhost ip6-loopback" >> "$MNT/etc/hosts"
 echo "kali" > /proc/sys/kernel/hostname 2>/dev/null || true
 EOF
-    su -c "cp bootkali_init.tmp /data/local/nhsystem/boot_scripts/bootkali_init"
-    rm -f bootkali_init.tmp
 
-    # Write bootkali_bash
-    cat << 'EOF' > bootkali_bash.tmp
+    su -c "cat > /data/local/nhsystem/boot_scripts/bootkali_bash" << 'EOF'
 #!/system/bin/sh
 SCRIPT_PATH=$(readlink -f "$0")
 . "${SCRIPT_PATH%/*}"/bootkali_init
@@ -259,11 +253,8 @@ else
     chroot "$MNT" /bin/su
 fi
 EOF
-    su -c "cp bootkali_bash.tmp /data/local/nhsystem/boot_scripts/bootkali_bash"
-    rm -f bootkali_bash.tmp
 
-    # Write bootkali_login
-    cat << 'EOF' > bootkali_login.tmp
+    su -c "cat > /data/local/nhsystem/boot_scripts/bootkali_login" << 'EOF'
 #!/system/bin/sh
 SCRIPT_PATH=$(readlink -f "$0")
 . "${SCRIPT_PATH%/*}"/bootkali_init
@@ -278,11 +269,9 @@ else
     chroot "$MNT" /bin/su -l
 fi
 EOF
-    su -c "cp bootkali_login.tmp /data/local/nhsystem/boot_scripts/bootkali_login"
-    rm -f bootkali_login.tmp
 
-    # Write killkali
-    cat << 'EOF' > killkali.tmp
+    # Precise Process Cleaning: Redesigned killkali script via /proc structures
+    su -c "cat > /data/local/nhsystem/boot_scripts/killkali" << 'EOF'
 #!/system/bin/sh
 SCRIPT_PATH=$(readlink -f "$0")
 . "${SCRIPT_PATH%/*}"/bootkali_log
@@ -290,10 +279,11 @@ SCRIPT_PATH=$(readlink -f "$0")
 
 kill_chroot_processes() {
     bklog "[!] Killing processes running in chroot..."
-    local pids=$(lsof | grep "$MNT" | awk '{print $2}' | uniq)
-    if [ -n "$pids" ]; then
-        kill -9 $pids 2>/dev/null
-    fi
+    for pid in $(ls /proc | grep -E '^[0-9]+$'); do
+        if ls -l /proc/$pid/root 2>/dev/null | grep -q "$MNT"; then
+            kill -9 $pid 2>/dev/null
+        fi
+    done
 }
 
 unmount_fs() {
@@ -316,11 +306,8 @@ unmount_fs "$MNT/system"
 unmount_fs "$MNT/sdcard"
 bklog "[+] All done."
 EOF
-    su -c "cp killkali.tmp /data/local/nhsystem/boot_scripts/killkali"
-    rm -f killkali.tmp
 
-    # Write bootkali
-    cat << 'EOF' > bootkali.tmp
+    su -c "cat > /data/local/nhsystem/boot_scripts/bootkali" << 'EOF'
 #!/system/bin/sh
 SCRIPT_PATH=$(readlink -f "$0")
 . "${SCRIPT_PATH%/*}"/bootkali_init
@@ -352,10 +339,7 @@ else
     fi
 fi
 EOF
-    su -c "cp bootkali.tmp /data/local/nhsystem/boot_scripts/bootkali"
-    rm -f bootkali.tmp
 
-    # Make all boot scripts and directories searchable and executable
     su -c "chmod 755 /data/local"
     su -c "chmod 755 /data/local/nhsystem"
     su -c "chmod 755 /data/local/nhsystem/boot_scripts"
@@ -363,7 +347,6 @@ EOF
     echo -e "${green}✓ NetHunter boot scripts setup complete.${reset}"
 }
 
-# 6. Legacy: Move user's custom scripts to chroot
 function setup_nh_files()
 {
     local BIN_DIR="/data/local/nhsystem/kali-${ARCH}/bin"
@@ -371,7 +354,7 @@ function setup_nh_files()
     local SCRIPTS_SRC="scripts"
 
     if [ ! -d "$SCRIPTS_SRC" ]; then
-        echo -e "${yellow}⚠️ Warning: '$SCRIPTS_SRC' folder not found in current directory. Skipping legacy script setup.${reset}"
+        echo -e "${yellow}⚠️ Warning: '$SCRIPTS_SRC' folder not found inside working environment. Skipping legacy scripts setup.${reset}"
         return 0
     fi
 
@@ -379,8 +362,6 @@ function setup_nh_files()
         echo -e "${light_cyan}[*] Copying 'kex' to $BIN_DIR...${reset}"
         su -c "mkdir -p '$BIN_DIR' && cp '$SCRIPTS_SRC/kex' '$BIN_DIR/' && chmod +x '$BIN_DIR/kex'"
         echo -e "${green}✓ 'kex' moved and made executable.${reset}"
-    else
-        echo -e "${yellow}⚠️ Warning: 'kex' not found inside '$SCRIPTS_SRC/'${reset}"
     fi
 
     if [ "$(shopt -s nullglob; echo "$SCRIPTS_SRC"/*)" ]; then
@@ -392,24 +373,17 @@ function setup_nh_files()
             fi
         done
         echo -e "${green}✓ All remaining scripts moved to root and made executable.${reset}"
-    else
-        echo -e "${yellow}ℹ️ No extra scripts left in '$SCRIPTS_SRC/' to copy.${reset}"
     fi
 }
 
-# 7. Setup system permissions, tmp directories and audio support
 function apply_chroot_compatibility_fixes()
 {
     echo -e "${light_cyan}[*] Applying Android/Termux compatibility fixes inside chroot...${reset}"
     local CHROOT_PATH="/data/local/nhsystem/kali-${ARCH}"
 
-    # 1. Clear resolv.conf and setup reliable DNS servers (Google, Cloudflare, and system properties if available)
     su -c "mkdir -p $CHROOT_PATH/etc"
     su -c "echo 'nameserver 8.8.8.8' > $CHROOT_PATH/etc/resolv.conf"
     su -c "echo 'nameserver 1.1.1.1' >> $CHROOT_PATH/etc/resolv.conf"
-    su -c "echo 'nameserver 208.67.222.222' >> $CHROOT_PATH/etc/resolv.conf"
-    su -c "echo 'nameserver 208.67.220.220' >> $CHROOT_PATH/etc/resolv.conf"
-    # Try to append device's dns servers
     for i in 1 2 3 4; do
         dns=$(getprop net.dns${i})
         if [ -n "$dns" ]; then
@@ -418,12 +392,10 @@ function apply_chroot_compatibility_fixes()
     done
     su -c "chmod 644 $CHROOT_PATH/etc/resolv.conf"
 
-    # 2. Disable APT sandbox to prevent sandbox permission errors on Android
     su -c "mkdir -p $CHROOT_PATH/etc/apt/apt.conf.d"
     su -c "echo 'APT::Sandbox::User \"root\";' > $CHROOT_PATH/etc/apt/apt.conf.d/01-android-nosandbox"
     su -c "chmod 644 $CHROOT_PATH/etc/apt/apt.conf.d/01-android-nosandbox"
 
-    # 3. Add aid_inet group (GID 3003) and assign _apt user to it for internet permissions under Android
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot $CHROOT_PATH sh -c '
         GN=\$(getent group 3003 | cut -d: -f1 || true)
         if [ -z \"\$GN\" ]; then
@@ -439,160 +411,113 @@ function apply_chroot_compatibility_fixes()
         fi
     '"
 
-    # 4. Comment out pam_keyinit.so inside chroot pam configurations as it causes issues on Android
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot $CHROOT_PATH sh -c '
         if [ -d /etc/pam.d ]; then
             sed -i \"s/pam_keyinit\\.so/& # disabled on Android/\" /etc/pam.d/* 2>/dev/null || true
         fi
     '"
 
-    # 5. Fix TMPDIR environment variable for zsh/bash configurations to prevent /tmp directory errors
-    echo -e "${light_cyan}[*] Configuring TMPDIR=/tmp for bash and zsh shells inside chroot...${reset}"
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot $CHROOT_PATH sh -c '
-        # Global zshrc
         mkdir -p /etc/zsh
         if [ ! -f /etc/zsh/zshrc ] || ! grep -q \"export TMPDIR=/tmp\" /etc/zsh/zshrc; then
             echo \"export TMPDIR=/tmp\" >> /etc/zsh/zshrc
         fi
-
-        # Global bashrc
         if [ ! -f /etc/bash.bashrc ] || ! grep -q \"export TMPDIR=/tmp\" /etc/bash.bashrc; then
             echo \"export TMPDIR=/tmp\" >> /etc/bash.bashrc
         fi
-
-        # User-specific zshrc & bashrc for root and kali users if they exist
-        for user_home in /root /home/kali; do
-            if [ -d \"\$user_home\" ]; then
-                for rcfile in .zshrc .bashrc; do
-                    # Create the file if it does not exist, or append if not already present
-                    if [ ! -f \"\$user_home/\$rcfile\" ]; then
-                        echo \"export TMPDIR=/tmp\" > \"\$user_home/\$rcfile\"
-                    elif ! grep -q \"export TMPDIR=/tmp\" \"\$user_home/\$rcfile\"; then
-                        echo \"export TMPDIR=/tmp\" >> \"\$user_home/\$rcfile\"
-                    fi
-                    # Match home folder owner/group
-                    owner=\$(stat -c \"%u:%g\" \"\$user_home\" 2>/dev/null || echo \"root:root\")
-                    chown \"\$owner\" \"\$user_home/\$rcfile\" 2>/dev/null || true
-                    chmod 644 \"\$user_home/\$rcfile\" 2>/dev/null || true
-                done
-            fi
-        done
     '"
 }
 
 function setup_permissions_and_audio()
 {
     echo -e "${light_cyan}[*] Setting system mount and sudo permissions...${reset}"
-    # Remount /data to enable suid execution (needed for chroot sudo)
     su -c "mount -o remount,suid /data"
     su -c "chmod +s /data/local/nhsystem/kali-${ARCH}/usr/bin/sudo"
-
-    # Ensure /tmp and /var/tmp directories exist and have proper sticky permissions (1777)
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} chmod 1777 /tmp /var/tmp 2>/dev/null" || true
 
-    # Create android tmpdir redirector script in /etc/profile.d/
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} mkdir -p /etc/profile.d"
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} sh -c \"echo 'export TMPDIR=/tmp' > /etc/profile.d/99-android-tmpdir.sh\""
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} chmod 644 /etc/profile.d/99-android-tmpdir.sh"
 
-    # Initialize namespaces and mount proc, sys, dev etc.
     echo -e "${light_cyan}[*] Initializing mounts for the chroot environment...${reset}"
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /data/local/nhsystem/boot_scripts/bootkali_init"
 
-    # Apply Termux-chroot compatibility fixes
     apply_chroot_compatibility_fixes
 
-    # Install nethunter-utils to get the audio binary /usr/bin/audio
     echo -e "${light_cyan}[*] Installing nethunter-utils inside chroot for audio support...${reset}"
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} apt-get update"
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm DEBIAN_FRONTEND=noninteractive /system/bin/chroot /data/local/nhsystem/kali-${ARCH} apt-get install -y nethunter-utils"
-
-    # Ensure audio binary has execution permissions
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} chmod +x /usr/bin/audio 2>/dev/null" || true
     echo -e "${green}✓ Permissions and audio configuration complete.${reset}"
 }
 
-# 8. Create the Termux-side boot-kali runner script
 function install_boot_nethunter()
 {
     echo -e "${light_cyan}[*] Installing Termux boot-kali utility...${reset}"
     
-    # 1. Create the boot-kali script locally in Termux user space first
+    # 1. Pipeline-write the utility wrapper locally inside termux
     cat << 'EOF' > boot-kali.tmp
 #!/data/data/com.termux/files/usr/bin/bash
-# This script boots nethunter in termux
-
 if [ "$1" = "--remove" ]; then
     echo -e "\033[1;33m[*] Unmounting and removing Kali NetHunter chroot...\033[0m"
-    # Kill any processes running in the chroot and unmount filesystems
     if su -c "test -f /data/local/nhsystem/boot_scripts/killkali"; then
         su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/local/nhsystem/boot_scripts TERM=xterm sh /data/local/nhsystem/boot_scripts/killkali"
     else
-        ARCH="$([ "$(uname -m)" = "aarch64" ] && echo "arm64" || echo "armhf")"
+        UNAME_M=$(uname -m)
+        if [ "$UNAME_M" = "aarch64" ]; then ARCH="arm64"; elif [ "$UNAME_M" = "x86_64" ]; then ARCH="amd64"; elif [ "$UNAME_M" = "i686" ] || [ "$UNAME_M" = "i386" ]; then ARCH="i386"; else ARCH="armhf"; fi
         MNT="/data/local/nhsystem/kali-${ARCH}"
-        su -c "pids=\$(lsof | grep '$MNT' | awk '{print \$2}' | uniq) && [ -n '\$pids' ] && kill -9 \$pids; for m in dev/pts dev/shm dev/binderfs dev proc sys system sdcard; do umount -l $MNT/\$m 2>/dev/null; done"
+        su -c "for pid in \$(ls /proc | grep -E '^[0-9]+\$'); do if ls -l /proc/\$pid/root 2>/dev/null | grep -q '\$MNT'; then kill -9 \$pid 2>/dev/null; fi; done; for m in dev/pts dev/shm dev/binderfs dev proc sys system sdcard; do umount -l \$MNT/\$m 2>/dev/null; done"
     fi
-    
-    # Remove the chroot directories
     su -c "rm -rf /data/local/nhsystem"
-    
-    # Remove from Termux auto-boot (bash.bashrc)
     bashrc_path="/data/data/com.termux/files/usr/etc/bash.bashrc"
-    if [ -f "$bashrc_path" ]; then
-        sed -i '/^boot-kali$/d' "$bashrc_path"
-    fi
-    
-    # Remove the boot-kali command itself
+    if [ -f "$bashrc_path" ]; then sed -i '/^boot-kali$/d' "$bashrc_path"; fi
     rm -f "/data/data/com.termux/files/usr/bin/boot-kali"
-    
-    echo -e "\033[1;32m✓ Kali NetHunter chroot and boot-kali utility successfully removed.\033[0m"
+    echo -e "\033[1;32m✓ Kali NetHunter chroot successfully removed.\033[0m"
     exit 0
 fi
 
-# Construct safe arguments string to pass cleanly through su -c
 ARGS=""
 for arg in "$@"; do
-    # Escape single quotes and wrap in single quotes
     escaped_arg=$(echo "$arg" | sed "s/'/'\\\\''/g")
     ARGS="$ARGS '$escaped_arg'"
 done
-
-# Run bootkali using env -i to clear the Termux host environment variables (prevents LD_PRELOAD crashes)
 su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/local/nhsystem/boot_scripts TERM=xterm sh /data/local/nhsystem/boot_scripts/bootkali $ARGS"
 EOF
 
-    # 2. Move it to the system destination, make it executable
     TARGET_PATH="/data/data/com.termux/files/usr/bin/boot-kali"
     mv boot-kali.tmp "$TARGET_PATH"
     chmod +x "$TARGET_PATH"
 
-    echo " "
-    echo -e "${green} [*] Installation successful !!!${reset}"
-    echo " "
-    echo -e "${light_cyan}> Run 'boot-kali' anywhere in Termux to start Kali Chroot.${reset}"
-    echo " "
-    echo -e "${yellow} [*] Termux needs to be restarted to work properly,${reset}"
-    echo -e "${yellow}     Please restart !${reset}"
-    echo " "
-    read -p "Press [Enter] to exit..."
-    exit
+    # Resolved Dead Code: Removed 'exit' call to allow pipeline to continue downward!
+    echo -e "${green}✓ Boot script deployed to $TARGET_PATH successfully.${reset}"
 }
 
-setup_kali_boot() {
+function setup_kali_boot() {
     local motd_path="/data/data/com.termux/files/usr/etc/motd"
     local bashrc_path="/data/data/com.termux/files/usr/etc/bash.bashrc"
 
-    # Remove the MOTD file if it exists
     if [ -f "$motd_path" ]; then
         rm "$motd_path" && echo "Removed MOTD."
     fi
 
-    # Append 'boot-kali' only if it isn't already in the bash.bashrc
-    if ! grep -qxF "boot-kali" "$bashrc_path" 2>/dev/null; then
-        echo "boot-kali" | tee -a "$bashrc_path"
-        echo "Added 'boot-kali' to bash.bashrc."
+    # Auto-Boot Selection: Ask the user choice instead of silently hardcoding
+    echo " "
+    read -p "Do you want to configure Kali NetHunter to launch automatically every time Termux starts? (y/n): " autoboot_choice
+    autoboot_choice=$(echo "$autoboot_choice" | tr '[:upper:]' '[:lower:]')
+
+    if [[ "$autoboot_choice" == "y" || "$autoboot_choice" == "yes" ]]; then
+        if ! grep -qxF "boot-kali" "$bashrc_path" 2>/dev/null; then
+            echo "boot-kali" | tee -a "$bashrc_path" >/dev/null
+            echo -e "${green}✓ Added 'boot-kali' auto-boot configuration in bash.bashrc.${reset}"
+        else
+            echo -e "${yellow}ℹ️ 'boot-kali' was already configured in bash.bashrc.${reset}"
+        fi
     else
-        echo "'boot-kali' is already configured in bash.bashrc."
+        if grep -qxF "boot-kali" "$bashrc_path" 2>/dev/null; then
+            sed -i '/^boot-kali$/d' "$bashrc_path"
+            echo -e "${yellow}✓ Removed legacy auto-boot config entry from bash.bashrc.${reset}"
+        fi
+        echo -e "${light_cyan}[*] Auto-boot skipped.${reset}"
     fi
 }
 
@@ -600,28 +525,34 @@ function clean_temp()
 {
     echo -e "${light_cyan}[*] Cleaning up temporary files...${reset}"
     
-    # Ask the user before deleting the rootfs archive
     if [ -f "nethunter-rootfs.tar.xz" ]; then
         read -p "Do you want to delete the downloaded rootfs archive to free up space? (y/n): " clean_choice
         clean_choice=$(echo "$clean_choice" | tr '[:upper:]' '[:lower:]')
         if [[ "$clean_choice" == "y" || "$clean_choice" == "yes" ]]; then
-            rm -f nethunter-rootfs.tar.xz
-            echo -e "${green}✓ Rootfs archive removed.${reset}"
+            rm -f nethunter-rootfs.tar.xz nethunter-rootfs.tar.xz.sha256
+            echo -e "${green}✓ Rootfs archives cleared.${reset}"
         else
-            echo -e "${yellow}ℹ️ Rootfs archive kept for future reinstalls.${reset}"
+            echo -e "${yellow}ℹ️ Rootfs archive kept.${reset}"
         fi
+    else
+        rm -f nethunter-rootfs.tar.xz.sha256
     fi
 
-    # Clean up wget history file if it exists
     if [ -f ~/.wget-hsts ]; then
         rm -f ~/.wget-hsts
     fi
     
-    echo -e "${green}✓ Clean up done.${reset}"
+    echo " "
+    echo -e "${green} [*] Installation successful !!!${reset}"
+    echo " "
+    echo -e "${light_cyan}> Run 'boot-kali' anywhere in Termux to start Kali Chroot.${reset}"
+    echo " "
+    echo -e "${yellow} [*] Complete. Please restart Termux now!${reset}"
+    echo " "
+    read -p "Press [Enter] to finish..."
 }
 
-
-############ Main #############
+############ Main Execution #############
 
 print_banner
 check_update
