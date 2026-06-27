@@ -99,7 +99,7 @@ function download_and_extract()
         use_existing=$(echo "$use_existing" | tr '[:upper:]' '[:lower:]')
         if [[ "$use_existing" != "y" && "$use_existing" != "yes" ]]; then
             echo -e "${light_cyan}[*] Downloading fresh archive...${reset}"
-            rm -f nethunter-rootfs.tar.xz nethunter-rootfs.tar.xz.sha256
+            rm -f nethunter-rootfs.tar.xz nethunter-rootfs.tar.xz.sha256 SHA256SUMS
             wget -O nethunter-rootfs.tar.xz --show-progress "$ROOTFS_URL"
         else
             echo -e "${green}[*] Using existing archive.${reset}"
@@ -108,20 +108,32 @@ function download_and_extract()
         wget -O nethunter-rootfs.tar.xz --show-progress "$ROOTFS_URL"
     fi
 
-    # Integrity Validation: Grab and verify with official SHA256 checksum file
+    # Fixed Integrity Validation: Read the official master SHA256SUMS file
     echo -e "${light_cyan}[*] Verifying integrity via SHA256...${reset}"
-    wget -O nethunter-rootfs.tar.xz.sha256 "${ROOTFS_URL}.sha256"
-    if [ -f nethunter-rootfs.tar.xz.sha256 ]; then
-        # Format official hash payload to read locally saved file name
-        sed -i "s|$(basename "$ROOTFS_URL")|nethunter-rootfs.tar.xz|g" nethunter-rootfs.tar.xz.sha256
-        if sha256sum -c nethunter-rootfs.tar.xz.sha256 >/dev/null 2>&1; then
-            echo -e "${green}✓ Integrity verification passed!${reset}"
+    ROOTFS_FILENAME=$(basename "$ROOTFS_URL")
+    BASE_URL=$(dirname "$ROOTFS_URL")
+
+    # Download the universal hash file
+    if wget -q -O SHA256SUMS "${BASE_URL}/SHA256SUMS"; then
+        # Find our specific file's hash and format it to match our local filename
+        grep "$ROOTFS_FILENAME" SHA256SUMS | sed "s|$ROOTFS_FILENAME|nethunter-rootfs.tar.xz|g" > nethunter-rootfs.tar.xz.sha256
+        
+        # Check if grep actually found the hash (file is not empty)
+        if [ -s nethunter-rootfs.tar.xz.sha256 ]; then
+            if sha256sum -c nethunter-rootfs.tar.xz.sha256 >/dev/null 2>&1; then
+                echo -e "${green}✓ Integrity verification passed!${reset}"
+            else
+                echo -e "${red}❌ Integrity verification failed! Corrupted download.${reset}"
+                rm -f SHA256SUMS nethunter-rootfs.tar.xz.sha256
+                exit 1
+            fi
         else
-            echo -e "${red}❌ Integrity verification failed! Corrupted download.${reset}"
-            exit 1
+            echo -e "${yellow}⚠️ Warning: Hash for $ROOTFS_FILENAME not found in SHA256SUMS. Skipping verification.${reset}"
         fi
+        rm -f SHA256SUMS nethunter-rootfs.tar.xz.sha256
     else
-        echo -e "${yellow}⚠️ Warning: Missing official checksum file. Skipping verification.${reset}"
+        echo -e "${yellow}⚠️ Warning: SHA256SUMS file could not be downloaded. Skipping verification.${reset}"
+        rm -f SHA256SUMS # Clean up failed empty wget file
     fi
 
     echo -e "${light_cyan}[*] Creating target directory /data/local/nhsystem...${reset}"
@@ -529,13 +541,13 @@ function clean_temp()
         read -p "Do you want to delete the downloaded rootfs archive to free up space? (y/n): " clean_choice
         clean_choice=$(echo "$clean_choice" | tr '[:upper:]' '[:lower:]')
         if [[ "$clean_choice" == "y" || "$clean_choice" == "yes" ]]; then
-            rm -f nethunter-rootfs.tar.xz nethunter-rootfs.tar.xz.sha256
+            rm -f nethunter-rootfs.tar.xz nethunter-rootfs.tar.xz.sha256 SHA256SUMS
             echo -e "${green}✓ Rootfs archives cleared.${reset}"
         else
             echo -e "${yellow}ℹ️ Rootfs archive kept.${reset}"
         fi
     else
-        rm -f nethunter-rootfs.tar.xz.sha256
+        rm -f nethunter-rootfs.tar.xz.sha256 SHA256SUMS
     fi
 
     if [ -f ~/.wget-hsts ]; then
