@@ -260,8 +260,8 @@ for i in 1 2 3 4; do
         echo "nameserver $dns" >> "$MNT/etc/resolv.conf"
     fi
 done
-echo "nameserver 8.8.8.8" >> "$MNT/etc/resolv.conf"
 echo "nameserver 1.1.1.1" >> "$MNT/etc/resolv.conf"
+echo "nameserver 8.8.8.8" >> "$MNT/etc/resolv.conf"
 chmod 644 "$MNT/etc/resolv.conf"
 
 sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1
