@@ -8,6 +8,15 @@ Boots the **Kali Chroot (Nethunter-Rooted)** environment directly inside **Termu
    ```bash
    pkg install git && git clone https://github.com/abidhasansojib/Nethunter_Chroot_Termux.git && cd Nethunter_Chroot_Termux && chmod +x install.sh && ./install.sh
    ```
+
+## Updating Configurations & Patches
+
+If you already have the chroot installed and want to update boot scripts, custom files, or apply compatibility patches (like fixing the multi-line wrap/arrow-key issues) without deleting or losing any data in your chroot, run:
+
+   ```bash
+   ./install.sh --update
+   ```
+
 # Fix tmp directory error
 I have added fix in installation scripts but if that doesn't work usung this in kali terminal
 

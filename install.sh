@@ -52,6 +52,26 @@ fi
 
 MNT="/data/local/nhsystem/kali-${ARCH}"
 
+# Check if update mode is requested
+UPDATE_MODE=false
+if [ "$1" = "--update" ]; then
+    UPDATE_MODE=true
+    
+    # Verify Termux environment
+    if [ ! -d "/data/data/com.termux/files/usr" ]; then
+        echo -e "${red}[!] You are not running inside a proper Termux environment!${reset}"
+        exit 1
+    fi
+    
+    # Check if chroot exists
+    if ! su -c "test -d $MNT"; then
+        echo -e "${red}[!] Error: Kali chroot not found at $MNT.${reset}"
+        echo -e "${yellow}[*] Please run the installer without '--update' to perform a full installation first.${reset}"
+        exit 1
+    fi
+fi
+
+
 function check_existing_chroot()
 {
     if su -c "test -d $MNT"; then
@@ -437,6 +457,12 @@ function apply_chroot_compatibility_fixes()
         if [ ! -f /etc/bash.bashrc ] || ! grep -q \"export TMPDIR=/tmp\" /etc/bash.bashrc; then
             echo \"export TMPDIR=/tmp\" >> /etc/bash.bashrc
         fi
+        if [ ! -f /etc/zsh/zshrc ] || ! grep -q \"export LANG=\" /etc/zsh/zshrc; then
+            echo \"export LANG=C.UTF-8\" >> /etc/zsh/zshrc
+        fi
+        if [ ! -f /etc/bash.bashrc ] || ! grep -q \"export LANG=\" /etc/bash.bashrc; then
+            echo \"export LANG=C.UTF-8\" >> /etc/bash.bashrc
+        fi
     '"
 }
 
@@ -449,6 +475,8 @@ function setup_permissions_and_audio()
 
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} mkdir -p /etc/profile.d"
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} sh -c \"echo 'export TMPDIR=/tmp' > /etc/profile.d/99-android-tmpdir.sh\""
+    su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} sh -c \"echo 'export LANG=C.UTF-8' >> /etc/profile.d/99-android-tmpdir.sh\""
+    su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} sh -c \"echo 'export LC_ALL=C.UTF-8' >> /etc/profile.d/99-android-tmpdir.sh\""
     su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=xterm /system/bin/chroot /data/local/nhsystem/kali-${ARCH} chmod 644 /etc/profile.d/99-android-tmpdir.sh"
 
     echo -e "${light_cyan}[*] Initializing mounts for the chroot environment...${reset}"
@@ -493,7 +521,7 @@ for arg in "$@"; do
     escaped_arg=$(echo "$arg" | sed "s/'/'\\\\''/g")
     ARGS="$ARGS '$escaped_arg'"
 done
-su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/local/nhsystem/boot_scripts TERM=xterm sh /data/local/nhsystem/boot_scripts/bootkali $ARGS"
+su -c "env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/local/nhsystem/boot_scripts TERM=\"${TERM:-xterm-256color}\" LANG=\"${LANG:-C.UTF-8}\" LC_ALL=\"${LC_ALL:-C.UTF-8}\" sh /data/local/nhsystem/boot_scripts/bootkali $ARGS"
 EOF
 
     TARGET_PATH="/data/data/com.termux/files/usr/bin/boot-kali"
@@ -567,6 +595,25 @@ function clean_temp()
 ############ Main Execution #############
 
 print_banner
+
+if [ "$UPDATE_MODE" = true ]; then
+    echo -e "${light_cyan}[*] Updating configuration files, boot scripts and user scripts...${reset}"
+    setup_boot_scripts
+    setup_nh_files
+    setup_permissions_and_audio
+    install_boot_nethunter
+    
+    echo " "
+    echo -e "${green} [*] Update successful !!!${reset}"
+    echo " "
+    echo -e "${light_cyan}> Run 'boot-kali' anywhere in Termux to start Kali Chroot.${reset}"
+    echo " "
+    echo -e "${yellow} [*] Complete. Please restart Termux now!${reset}"
+    echo " "
+    read -p "Press [Enter] to finish..."
+    exit 0
+fi
+
 check_update
 check_existing_chroot
 choose_rootfs_version
