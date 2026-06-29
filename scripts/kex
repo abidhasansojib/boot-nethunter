@@ -1,8 +1,39 @@
 #!/bin/bash
 
-# --- 1.5. VNC Kill function ---
+# --- 1. Colors & Design System ---
+RED='\033[1;31m'
+BLUE='\033[1;34m'
+RESET='\033[0m'
+
+# --- 2. Banner Function ---
+print_banner() {
+    clear
+    echo -e "${BLUE}====================================================${RESET}"
+    echo -e "${BLUE}    _  _  _  _   _             _               ${RESET}"
+    echo -e "${BLUE}   | \\| || |_| | |_  _ _ _  _| |_  ___ _ _    ${RESET}"
+    echo -e "${BLUE}   | .  ||  _| | . || | | || . | || . | | |    ${RESET}"
+    echo -e "${BLUE}   |_|\\_||___| |_|_||_____||___|_||  _|___|    ${RESET}"
+    echo -e "${BLUE}                                  |_|          ${RESET}"
+    echo -e "        ${RED}⚡ Kali NetHunter KeX Desktop Manager ⚡${RESET}"
+    echo -e "${BLUE}====================================================${RESET}"
+}
+
+# --- 3. Usage Help Function ---
+show_usage() {
+    print_banner
+    echo -e "${BLUE}Usage Options:${RESET}"
+    echo -e "  kex          - Start KeX server as normal user (kali)"
+    echo -e "  kex -r       - Start KeX server as root user"
+    echo -e "  kex kill     - Stop all running KeX server instances"
+    echo -e "  kex stop     - Stop all running KeX server instances (alias)"
+    echo ""
+}
+
+# --- 4. VNC Kill function ---
 kill_vnc() {
-    echo "Stopping all VNC server instances..."
+    print_banner
+    echo -e "${BLUE}[*] Stopping all VNC server instances...${RESET}"
+    echo ""
     
     local displays
     displays=$( (
@@ -13,11 +44,13 @@ kill_vnc() {
     
     if [ -n "$displays" ]; then
         for display in $displays; do
-            echo "Stopping display $display..."
+            echo -e "${BLUE}[-] Stopping display $display...${RESET}"
             vncserver -kill "$display" >/dev/null 2>&1
             sudo -u kali vncserver -kill "$display" >/dev/null 2>&1
             sudo -u root vncserver -kill "$display" >/dev/null 2>&1
         done
+    else
+        echo -e "${BLUE}[i] No active displays found running.${RESET}"
     fi
 
     # Force kill any remaining processes
@@ -28,44 +61,56 @@ kill_vnc() {
     rm -f /tmp/.X*-lock /tmp/.X11-unix/X* >/dev/null 2>&1
     rm -f /home/*/.vnc/*.pid /home/*/.vnc/*.log /root/.vnc/*.pid /root/.vnc/*.log >/dev/null 2>&1
     
-    echo "All VNC servers stopped and cleaned up successfully."
+    echo ""
+    echo -e "${BLUE}✓ All VNC servers stopped and sockets cleaned up successfully!${RESET}"
+    echo ""
 }
 
-# --- 2. Check for kill command ---
+# --- 5. Check for kill command ---
 if [ "$1" = "kill" ] || [ "$1" = "stop" ] || { [ "$1" = "-r" ] && [ "$2" = "kill" ]; } || { [ "$1" = "-r" ] && [ "$2" = "stop" ]; }; then
     kill_vnc
     exit 0
 fi
 
-# --- 3. Check and Install Desktop/VNC ---
+# --- 6. Check and Install Desktop/VNC ---
 if ! command -v vncserver >/dev/null 2>&1 || [ ! -d /usr/share/xsessions ]; then
-    echo -ne "\033]0;Installing XFCE\007" && clear
+    echo -ne "\033]0;Installing XFCE Desktop\007"
+    print_banner
+    echo -e "${RED}[!] Warning: XFCE Desktop or VNC Server is not installed!${RESET}"
+    echo -e "${BLUE}[*] Preparing to install dependencies (kali-desktop-xfce, tigervnc, dbus)...${RESET}"
+    echo -e "${BLUE}[*] Running apt update & install...${RESET}\n"
+    
     apt update && apt install -y kali-desktop-xfce tigervnc-standalone-server dbus-x11
     apt clean
-    echo 'Done! Exiting..'
+    
+    echo -e "\n${BLUE}✓ Setup complete! Please run 'kex' again to launch the server.${RESET}"
     exit 0
 fi
 
-# --- 4. Determine Execution Mode (-r or normal) ---
+# --- 7. Determine Execution Mode (-r or normal) ---
 RUN_AS_ROOT=false
 
 if [ "$1" == "-r" ]; then
     RUN_AS_ROOT=true
 elif [ -n "$1" ]; then
-    echo "Usage: kex [or] kex -r [or] kex kill"
+    show_usage
     exit 1
 fi
 
-# --- 4. Password Setup and Server Launch logic ---
+# --- 8. Password Setup and Server Launch logic ---
 if [ "$RUN_AS_ROOT" = true ]; then
     # --- ROOT MODE (kex -r) ---
     
+    print_banner
+    echo -e "${BLUE}[*] Mode: ${RED}Root User (kex -r)${RESET}"
+    echo ""
+
     # Check if root password file exists
     if [ ! -f /root/.vnc/passwd ] && [ ! -f /root/.config/tigervnc/passwd ]; then
-        echo -ne "\033]0;Setting up Server\007" && clear
+        echo -ne "\033]0;Setting up KeX Server Password\007"
         [ -f ~/.vnc/xstartup ] && chmod +x ~/.vnc/xstartup
-        clear
-        echo -e "\nPlease enter your new VNC server password\n"
+        echo -e "${RED}[!] VNC password file not found. Let's create one now.${RESET}"
+        echo -e "${BLUE}[*] Please enter your new VNC server password below:${RESET}\n"
         
         if [ "root" == "root" ]; then 
             if [ ! -d /root/.config/tigervnc ]; then mkdir -p -m 0777 /root/.config/tigervnc; fi
@@ -79,25 +124,47 @@ if [ "$RUN_AS_ROOT" = true ]; then
                 if [ ! -f /home/root/.vnc/passwd ]; then cp -rf /home/root/.config/tigervnc/passwd /home/root/.vnc/; fi
             fi
         fi
+        echo ""
+        echo -e "${BLUE}✓ VNC Password configured successfully.${RESET}"
+        sleep 1
+        print_banner
+        echo -e "${BLUE}[*] Mode: ${RED}Root User (kex -r)${RESET}"
+        echo ""
     fi
 
-    # Start audio and Root server
+    # Start Root server
+    echo -ne "\033]0;Starting KeX Server\007"
+    echo -e "${BLUE}[*] Starting VNC server on display :1...${RESET}"
     
-    echo -ne "\033]0;Starting Server\007" && clear
     export HOME=/root
     export USER=root
     sudo -u root LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libgcc_s.so.1 nohup vncserver :1 -localhost yes -name "NetHunter KeX" >/dev/null 2>&1 </dev/null
-    echo "Server started as root!"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${BLUE}✓ NetHunter KeX Server started successfully as root!${RESET}"
+        echo -e "\n${BLUE}Connection details:${RESET}"
+        echo -e "  - Host: 127.0.0.1 (localhost)"
+        echo -e "  - Port: 5901 (Display :1)"
+        echo -e "  - VNC Client settings: Address ${BLUE}127.0.0.1:5901${RESET} or port ${BLUE}5901${RESET}"
+        echo ""
+    else
+        echo -e "${RED}❌ Failed to start the server. It might already be running.${RESET}"
+        echo -e "${RED}[!] Run 'kex kill' first if you need to restart the session.${RESET}"
+    fi
 
 else
     # --- KALI USER MODE (kex) ---
     
+    print_banner
+    echo -e "${BLUE}[*] Mode: Normal User (kali)${RESET}"
+    echo ""
+
     # Check if kali user password file exists
     if [ ! -f /home/kali/.vnc/passwd ] && [ ! -f /home/kali/.config/tigervnc/passwd ]; then
-        echo -ne "\033]0;Setting up Server\007" && clear
+        echo -ne "\033]0;Setting up KeX Server Password\007"
         [ -f ~/.vnc/xstartup ] && chmod +x ~/.vnc/xstartup
-        clear
-        echo -e "\nPlease enter your new VNC server password\n"
+        echo -e "${RED}[!] VNC password file not found. Let's create one now.${RESET}"
+        echo -e "${BLUE}[*] Please enter your new VNC server password below:${RESET}\n"
         
         if [ "kali" == "root" ]; then 
             if [ ! -d /root/.config/tigervnc ]; then mkdir -p -m 0777 /root/.root/.config/tigervnc; fi
@@ -111,13 +178,31 @@ else
                 if [ ! -f /home/kali/.vnc/passwd ]; then cp -rf /home/kali/.config/tigervnc/passwd /home/kali/.vnc/; fi
             fi
         fi
+        echo ""
+        echo -e "${BLUE}✓ VNC Password configured successfully.${RESET}"
+        sleep 1
+        print_banner
+        echo -e "${BLUE}[*] Mode: Normal User (kali)${RESET}"
+        echo ""
     fi
 
-    # Start audio and Kali server
+    # Start Kali server
+    echo -ne "\033]0;Starting KeX Server\007"
+    echo -e "${BLUE}[*] Starting VNC server on display :1...${RESET}"
     
-    echo -ne "\033]0;Starting Server\007" && clear
     export HOME=/home/kali
     export USER=kali
     sudo -u kali LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libgcc_s.so.1 nohup vncserver :1 -localhost yes -name "NetHunter KeX" >/dev/null 2>&1 </dev/null
-    echo "Server started!"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${BLUE}✓ NetHunter KeX Server started successfully!${RESET}"
+        echo -e "\n${BLUE}Connection details:${RESET}"
+        echo -e "  - Host: 127.0.0.1 (localhost)"
+        echo -e "  - Port: 5901 (Display :1)"
+        echo -e "  - VNC Client settings: Address ${BLUE}127.0.0.1:5901${RESET} or port ${BLUE}5901${RESET}"
+        echo ""
+    else
+        echo -e "${RED}❌ Failed to start the server. It might already be running.${RESET}"
+        echo -e "${RED}[!] Run 'kex kill' first if you need to restart the session.${RESET}"
+    fi
 fi
