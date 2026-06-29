@@ -534,32 +534,36 @@ EOF
 
 function setup_kali_boot() {
     local motd_path="/data/data/com.termux/files/usr/etc/motd"
+    # Fallback to local user .bashrc if the global one isn't writable
     local bashrc_path="/data/data/com.termux/files/usr/etc/bash.bashrc"
+    [ ! -w "$bashrc_path" ] && bashrc_path="$HOME/.bashrc"
 
     if [ -f "$motd_path" ]; then
         rm "$motd_path" && echo "Removed MOTD."
     fi
 
-    # Auto-Boot Selection: Ask the user choice instead of silently hardcoding
     echo " "
     read -p "Do you want to configure Kali NetHunter to launch automatically every time Termux starts? (y/n): " autoboot_choice
     autoboot_choice=$(echo "$autoboot_choice" | tr '[:upper:]' '[:lower:]')
 
     if [[ "$autoboot_choice" == "y" || "$autoboot_choice" == "yes" ]]; then
-        if ! grep -qxF "boot-kali" "$bashrc_path" 2>/dev/null; then
-            echo "boot-kali" | tee -a "$bashrc_path" >/dev/null
-            echo -e "${green}✓ Added 'boot-kali' auto-boot configuration in bash.bashrc.${reset}"
+        # Check both global and local configs to prevent duplicates
+        if ! grep -qxF "boot-kali" "/data/data/com.termux/files/usr/etc/bash.bashrc" 2>/dev/null && ! grep -qxF "boot-kali" "$HOME/.bashrc" 2>/dev/null; then
+            # Safe append: adds a guaranteed newline before appending the command
+            printf "\nboot-kali\n" >> "$bashrc_path"
+            echo -e "${green}✓ Added 'boot-kali' auto-boot configuration in $(basename $bashrc_path).${reset}"
         else
-            echo -e "${yellow}ℹ️ 'boot-kali' was already configured in bash.bashrc.${reset}"
+            echo -e "${yellow}ℹ️ 'boot-kali' was already configured.${reset}"
         fi
     else
         if grep -qxF "boot-kali" "$bashrc_path" 2>/dev/null; then
             sed -i '/^boot-kali$/d' "$bashrc_path"
-            echo -e "${yellow}✓ Removed legacy auto-boot config entry from bash.bashrc.${reset}"
+            echo -e "${yellow}✓ Removed legacy auto-boot config entry.${reset}"
         fi
         echo -e "${light_cyan}[*] Auto-boot skipped.${reset}"
     fi
 }
+
 
 function clean_temp()
 {
